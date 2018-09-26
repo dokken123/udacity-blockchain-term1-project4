@@ -62,6 +62,8 @@ app.post("/block", (req,res) => {
             block.star.story = encodedStory;
             blockchain.addBlock({"body": block}, (retBlock) => {
                 retBlock.body.star.story = story;
+                delete userIdentityMap[addr];
+                delete userSignatureMap[addr];
                 res.send(retBlock);
             }, (err) => {
                 res.send(err);
