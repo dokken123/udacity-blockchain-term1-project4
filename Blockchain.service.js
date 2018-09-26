@@ -61,7 +61,6 @@ app.post("/block", (req,res) => {
             var encodedStory = Buffer.from(story).toString("hex");
             block.star.story = encodedStory;
             blockchain.addBlock({"body": block}, (retBlock) => {
-                retBlock.body.star.story = story;
                 delete userIdentityMap[addr];
                 delete userSignatureMap[addr];
                 res.send(retBlock);
@@ -77,7 +76,7 @@ app.get("/block/:height", (req,res) => {
     blockchain.getBlock(height, (block) => {
         if(block != null) {
             var hexStory = block.body.star.story;
-            block.body.star.story = Buffer.from(hexStory, "hex").toString();
+            block.body.star.storyDecoded = Buffer.from(hexStory, "hex").toString();
         }
         res.send(block);
     }, (err) => {
@@ -91,7 +90,7 @@ app.get("/stars/address:addr", (req, res) => {
         if(block != null) {
             for(var i = 0; i < block.length; i++) { 
                 var hexStory = block[i].body.star.story;
-                block[i].body.star.story = Buffer.from(hexStory, "hex").toString();
+                block[i].body.star.storyDecoded = Buffer.from(hexStory, "hex").toString();
             }
         }
         res.send(block)
@@ -103,7 +102,7 @@ app.get("/stars/hash:hash", (req, res) => {
     blockchain.getBlockByHash(hash, block => {
         if(block != null) {
             var hexStory = block.body.star.story;
-            block.body.star.story = Buffer.from(hexStory, "hex").toString();
+            block.body.star.storyDecoded = Buffer.from(hexStory, "hex").toString();
         }
         res.send(block)
     }, err => res.send(err))
