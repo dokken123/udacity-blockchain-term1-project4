@@ -10,6 +10,8 @@ const util = require("util");
 
 var userIdentityMap = {};
 
+var userSignatureMap = {};
+
 const app = express();
 
 app.use(bodyParser.urlencoded({extended: false}));
@@ -35,19 +37,46 @@ app.post("/block", (req,res) => {
     if (block.address == null || block.address == undefined) {
         res.send({"err":"NO Address"});
     } else if (block.star == null || block.star == undefined) {
-        res.send({"err":"NO Address"});
+        res.send({"err":"NO Star"});
+    } else if (block.star.story == null || block.star.story == undefined) {
+        res.send({"err":"NO Star Story"});
     } else {
-        blockchain.addBlock({"body": block}, (retBlock) => {
-            res.send(retBlock);
-        }, (err) => {
-            res.send(err);
-        });
+        var addr = block.address;
+        var timestamp = new Date().getTime().toString().slice(0, -3);
+        var blocktime = null;
+        var expires = 300;
+        if (userIdentityMap.hasOwnProperty(addr)) {
+            blocktime = userIdentityMap[addr];
+            expires = timestamp - blocktime;
+        }
+        var story = block.star.story;
+        
+        if (expires >= 300) {
+            res.send({"err":"address require validation"});
+        } else if (!userSignatureMap.hasOwnProperty(addr)) {
+            res.send({"err":"address not yet verified"});
+        } else if (story.length > 250) {
+            res.send({"err":"Story longer than 250 words"});
+        } else {
+            var encodedStory = Buffer.from(story).toString("hex");
+            block.star.story = encodedStory;
+            blockchain.addBlock({"body": block}, (retBlock) => {
+                retBlock.body.star.story = story;
+                res.send(retBlock);
+            }, (err) => {
+                res.send(err);
+            });
+        }
     }
 });
 
 app.get("/block/:height", (req,res) => {
     var height = req.params.height;
     blockchain.getBlock(height, (block) => {
+        if(block != null) {
+            var hexStory = block.body.star.story;
+            block.body.star.story = Buffer.from(hexStory, "hex").toString();
+        }
         res.send(block);
     }, (err) => {
         res.send(err);
@@ -57,6 +86,12 @@ app.get("/block/:height", (req,res) => {
 app.get("/stars/address:addr", (req, res) => {
     var addr = req.params.addr.slice(1);
     blockchain.getBlockByAddr(addr, block => {
+        if(block != null) {
+            for(var i = 0; i < block.length; i++) { 
+                var hexStory = block[i].body.star.story;
+                block[i].body.star.story = Buffer.from(hexStory, "hex").toString();
+            }
+        }
         res.send(block)
     }, err => res.send(err))
 });
@@ -64,6 +99,10 @@ app.get("/stars/address:addr", (req, res) => {
 app.get("/stars/hash:hash", (req, res) => {
     var hash = req.params.hash.slice(1);
     blockchain.getBlockByHash(hash, block => {
+        if(block != null) {
+            var hexStory = block.body.star.story;
+            block.body.star.story = Buffer.from(hexStory, "hex").toString();
+        }
         res.send(block)
     }, err => res.send(err))
 });
@@ -147,6 +186,9 @@ app.post("/message-signature/validate", (req, res) => {
             } else {
                 var msg = util.format("%s:%s:starRegistry", addr, blocktime);
                 var validated = validator.verify(msg, addr, sign);
+                if (validated) {
+                    userSignatureMap[addr] = sign;
+                }
                 res.send({
                     "registerStar": validated,
                     "status": {

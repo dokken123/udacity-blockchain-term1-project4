@@ -97,13 +97,14 @@ class Blockchain{
   // get block by hash
   getBlockByHash(hash, callback, errCallback){
     // return object as a single string
-    let found = [];
+    let found = false;
     this.level.traversData(_ => {
-      callback(found);
+      if(!found) callback(null);
     }, block => {
       if (block.hasOwnProperty("hash")) {
             if (block.hash === hash) {
-              found.push(block);
+              found = true;
+              callback(block);
             }
       }
     }, err => errCallback(err));
